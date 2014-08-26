@@ -1,5 +1,5 @@
 library(plyr)
-library(data.table)
+library(data.table) # package 1.9.3
 
 # DATA PROCESSING
 
@@ -57,34 +57,4 @@ data[,sum_fatal := sum(fatalities), by = evtype]
 # add new column event that contains sum of FATALITIES by evtype column
 # sources selected by grepl("FLOOD") name.
 data[,event := sum(fatalities), by = grepl("flood",evtype)]
-
-# Subset data
-
-# DATA TABLE
-
-# in grep don't need specify 'data$some_col'
-
-# subset data with grep("wind") in evtype
-data[grep("wind", evtype, ignore.case = t)]
-
-# subset column 2 and 3 in data with grep("wind") in evtype 
-data[grep("wind", evtype, ignore.case = t)][,c(2,3), with = f]
-
-# subset data by grep("wind") in evtype and create new column fatal with
-# sums of fatalities (as column in data)
-data[grep("wind", evtype, ignore.case=t), fatal := sum(fatalities)]
-
-# FINAL SOLUTION !!! Every name like "WIND" from evtype change to "WIND"
-# evtype column. This replace every "WIND" like event to one "WIND"
-
-data[grep("wind", evtype, ignore.case=t), evtype := "wind"]
-
-# DATA FRAME SUBSET
-# subset evtype, FATALITIES column by grep("WIND") in evtype column
-t <- test[grep("wind", test$evtype, ignore.case=t), c("evtype","fatalities")]
-
-
-
-
-
 
