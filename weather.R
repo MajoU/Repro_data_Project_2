@@ -1,49 +1,87 @@
 library(plyr)
-data <- read.csv(bzfile("./repdata_data_StormData.csv.bz2"))[,c("EVTYPE", "FATALITIES", "INJURIES")]
-weather <- ddply(data, .(EVTYPE), summarize, fatal = sum(FATALITIES), injur = sum(INJURIES))
-tabs <- arrange(weather, desc(fatal), desc(injur))
-names <- list("STORM", "WIND","TORNADO","WINTER","HEAT","FLOOD","LIGHTNING","RIP","COLD","FOG","FIRE","HAIL")
-grep_names <- lapply(names, function(x) tabs[tabs$EVTYPE %in% grep(x,tabs$EVTYPE, value=T,ignore.case=T),])
-sum_names <- lapply(grep_names, function(x) colSums(Filter(is.numeric, x)))
-weather_df <- data.frame(weather = unlist(names), ldply(sum_names))
+library(data.table)
 
-# Second Part
+# DATA PROCESSING
 
-# use merge function for replace PROPDMGEXP sign to dollar values
+col_names <- c("EVTYPE","FATALITIES","INJURIES","PROPDMG","PROPDMGEXP","CROPDMG","CROPDMGEXP")
+data <- data.table(read.csv(bzfile("./repdata_data_StormData.csv.bz2"))[,col_names])
 
-money_df <- data.frame(signs = c("K", "M", "B"), dollars = c("1000", "10e5", "10e8"))
+# Change data colnames to lowercase
+setnames(data, names(data), tolower(names(data)))
+# Change all variables in evtype column to lower case
+data[,evtype := tolower(evtype)]
 
-merge_money <- merge(data, money_df, by.x = "PROPDMGEXP", by.y = "signs")
+# How much repetitive is variables in the evtype column?
+head(arrange(data[, .N, by = evtype], desc(N)), 40)
+
+# How much repetitive is some event with similar names?
+head(arrange(data[grep("wind", evtype),.N,by=evtype], desc(N)),20)
+head(arrange(data[grep("flood", evtype),.N,by=evtype], desc(N)),20)
+
+# The most influential source of event. I try to join some similar events with
+# influence on health and damage. 
+event <- list("heavy rain|rain", "winter events|winter|frost|cold|snow|freez|ice|blizzard", 
+    "hurricane events|hurricane|typhoon|tropical|waterspout", "heat|warm", "hail", 
+    "flood events|flood|surf|surge", "wind events|wind", "tornado", "rip", "fog", "fire")
+
+# This is complex line that deal with data , grep every element of list within data 
+# column evtype and change this grep variables to first element of name from event list 
+# through gsub function. The solution is within the data because data.table package (different than data.frame).
+tmp <- lapply(event, function(x) data[grep(x, evtype), evtype := gsub("\\|+[a-z]+","", x)])
+
+# FIRST PART
+
+harm_sum <- ddply(data, .(evtype), summarize, fatal = sum(fatalities), injur = sum(injuries))
+harm_sort <- arrange(harm_sum, desc(fatal), desc(injur))
+
+# SECOND PART
+
+prop_token <- data.table(propdmgexp = c("K", "M", "B"), dollars = as.numeric(c("1000", "10e5", "10e8")))
+prop_merge <- merge(setkey(data, propdmgexp), setkey(prop_token, propdmgexp))
+prop_sum <- ddply(prop_merge[, prop := propdmg * dollars],.(evtype), summarize, prop = (sum(prop)))
+prop_sort <- arrange(prop_sum, desc(prop))
+
+crop_token <- data.table(cropdmgexp = c("K", "M", "B"), dollars = as.numeric(c("1000", "10e5", "10e8")))
+crop_merge <- merge(setkey(data, cropdmgexp), setkey(crop_token, cropdmgexp))
+crop_sum <- ddply(crop_merge[, crop := cropdmg * dollars],.(evtype), summarize, crop = (sum(crop)))
+crop_sort <- arrange(crop_sum, desc(crop))
+
+# Alternative
+
 
 # Interesting Data table and some subsetting
 
-# add new column sum_fatal with sum of FATALITIES by EVTYPE column source
-data[,sum_fatal := sum(FATALITIES), by = EVTYPE]
+# add new column sum_fatal with sum of FATALITIES by evtype column source
+data[,sum_fatal := sum(fatalities), by = evtype]
 
-# add new column event that contains sum of FATALITIES by EVTYPE column
+# add new column event that contains sum of FATALITIES by evtype column
 # sources selected by grepl("FLOOD") name.
-data[,event := sum(FATALITIES), by = grepl("FLOOD",EVTYPE)]
+data[,event := sum(fatalities), by = grepl("flood",evtype)]
 
 # Subset data
 
-# Subset data with grep("WIND") in EVTYPE
-data[grep("WIND", data$EVTYPE, ignore.case = T)]
+# DATA TABLE
 
-# Subset column 2 and 3 in data with grep("WIND") in EVTYPE 
-data[grep("WIND", data$EVTYPE, ignore.case = T)][,c(2,3), with = F]
+# in grep don't need specify 'data$some_col'
 
-# Subset data by grep("WIND") in EVTYPE and create new column fats with
-# sums of FATALITIES (as column in data)
-data[grep("WIND", data$EVTYPE, ignore.case=T), fats := sum(FATALITIES)]
+# subset data with grep("wind") in evtype
+data[grep("wind", evtype, ignore.case = t)]
 
-# Find the name of event in the EVTYPE and create fatal column as sum of
-# FATALITIES within grep(names) variable
-sum_event <- lapply(names,function(names) data[grep(names,data$EVTYPE,ignore.case=T),fatalit := sum(FATALITIES)])
+# subset column 2 and 3 in data with grep("wind") in evtype 
+data[grep("wind", evtype, ignore.case = t)][,c(2,3), with = f]
 
+# subset data by grep("wind") in evtype and create new column fatal with
+# sums of fatalities (as column in data)
+data[grep("wind", evtype, ignore.case=t), fatal := sum(fatalities)]
 
-test <- data.frame(data)
-# subset EVTYPE, FATALITIES column by grep("WIND") in EVTYPE column
-t <- test[grep("WIND", test$EVTYPE, ignore.case=T), c("EVTYPE","FATALITIES")]
+# FINAL SOLUTION !!! Every name like "WIND" from evtype change to "WIND"
+# evtype column. This replace every "WIND" like event to one "WIND"
+
+data[grep("wind", evtype, ignore.case=t), evtype := "wind"]
+
+# DATA FRAME SUBSET
+# subset evtype, FATALITIES column by grep("WIND") in evtype column
+t <- test[grep("wind", test$evtype, ignore.case=t), c("evtype","fatalities")]
 
 
 
