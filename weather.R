@@ -32,19 +32,28 @@ tmp <- lapply(event, function(x) data[grep(x, evtype), evtype := gsub("\\|+[a-z]
 
 # FIRST PART
 
-harm_sum <- ddply(data, .(evtype), summarize, fatal = sum(fatalities), injur = sum(injuries))
+harm_sum <- data[, list(fatal = sum(fatalities), injur = sum(injuries)), by = evtype]
 harm_sort <- arrange(harm_sum, desc(fatal), desc(injur))
 
 # SECOND PART
 
-prop_token <- data.table(propdmgexp = c("K", "M", "B"), dollars = c("1000", "10^6", "10^9"))
+prop_token <- data.table(propdmgexp = c("K", "M", "B"), dollars = as.numeric(c("1000", "10e5", "10e8")))
 prop_merge <- merge(setkey(prop_token, propdmgexp), setkey(data, propdmgexp))
-prop_sum <- ddply(prop_merge[, prop := propdmg * dollars],.(evtype), summarize, prop = sum(prop))
+prop_sum <- prop_merge[, list(prop = sum(propdmg * dollars)), by = evtype]
 prop_sort <- arrange(prop_sum, desc(prop))
 
-crop_token <- data.table(cropdmgexp = c("K", "M", "B"), dollars = c("1000", "10^6", "10^9"))
+#---------------------------------------------------------
+
+#  ALTERNATIVE
+
+# prop_sum <- ddply(prop_merge[, prop := propdmg * dollars],.(evtype), summarize, prop = sum(prop))
+
+#--------------------------------------------------------
+
+
+crop_token <- data.table(cropdmgexp = c("K", "M", "B"), dollars = as.numeric(c("1000", "10e5", "10e8")))
 crop_merge <- merge(setkey(crop_token, cropdmgexp), setkey(data, cropdmgexp))
-crop_sum <- ddply(crop_merge[, crop := cropdmg * dollars],.(evtype), summarize, crop = sum(crop))
+crop_sum <- crop_merge[, list(crop = sum(cropdmg * dollars)), by = evtype]
 crop_sort <- arrange(crop_sum, desc(crop))
 
 # Alternative
