@@ -38,28 +38,35 @@ harm_sort <- arrange(harm_sum, desc(fatal), desc(injur))
 # SECOND PART
 
 prop_token <- data.table(propdmgexp = c("K", "M", "B"), dollars = as.numeric(c("1000", "10e5", "10e8")))
-prop_merge <- merge(setkey(prop_token, propdmgexp), setkey(data, propdmgexp))
+prop_merge <- merge(prop_token, data, by = "propdmgexp")
+
+#------------------------------------------------------------------------------------
+#  ALTERNATIVE
+
+# prop_merge <- merge(setkey(prop_token, propdmgexp), setkey(data, propdmgexp))
+
+#------------------------------------------------------------------------------------
 prop_sum <- prop_merge[, list(prop = sum(propdmg * dollars)), by = evtype]
-prop_sort <- arrange(prop_sum, desc(prop))
 
 #---------------------------------------------------------
-
 #  ALTERNATIVE
 
 # prop_sum <- ddply(prop_merge[, prop := propdmg * dollars],.(evtype), summarize, prop = sum(prop))
 
 #--------------------------------------------------------
 
+prop_sort <- arrange(prop_sum, desc(prop))
+
+
 
 crop_token <- data.table(cropdmgexp = c("K", "M", "B"), dollars = as.numeric(c("1000", "10e5", "10e8")))
-crop_merge <- merge(setkey(crop_token, cropdmgexp), setkey(data, cropdmgexp))
+crop_merge <- merge(crop_token, data, by = "cropdmgexp")
 crop_sum <- crop_merge[, list(crop = sum(cropdmg * dollars)), by = evtype]
 crop_sort <- arrange(crop_sum, desc(crop))
 
-# Alternative
 
 
-# Interesting Data table and some subsetting
+# Other codes for learning
 
 # add new column sum_fatal with sum of FATALITIES by evtype column source
 data[,sum_fatal := sum(fatalities), by = evtype]
