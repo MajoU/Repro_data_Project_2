@@ -29,22 +29,8 @@ frame to data.table
 
 ```r
 library(data.table)
-```
-
-```
-## data.table 1.9.3  For help type: help("data.table")
-```
-
-```r
 library(plyr)
 library(gridExtra)
-```
-
-```
-## Loading required package: grid
-```
-
-```r
 library(ggplot2)
 
 col_names <- c("EVTYPE","FATALITIES","INJURIES","PROPDMG","PROPDMGEXP","CROPDMG","CROPDMGEXP")

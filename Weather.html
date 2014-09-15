@@ -230,19 +230,9 @@ Read the bz2 file as csv, select columns by col_names and convert data
 frame to data.table</p>
 
 <pre><code class="r">library(data.table)
-</code></pre>
-
-<pre><code>## data.table 1.9.3  For help type: help(&quot;data.table&quot;)
-</code></pre>
-
-<pre><code class="r">library(plyr)
+library(plyr)
 library(gridExtra)
-</code></pre>
-
-<pre><code>## Loading required package: grid
-</code></pre>
-
-<pre><code class="r">library(ggplot2)
+library(ggplot2)
 
 col_names &lt;- c(&quot;EVTYPE&quot;,&quot;FATALITIES&quot;,&quot;INJURIES&quot;,&quot;PROPDMG&quot;,&quot;PROPDMGEXP&quot;,&quot;CROPDMG&quot;,&quot;CROPDMGEXP&quot;)
 # data &lt;- data.table(read.csv(bzfile(&quot;./repdata_data_StormData.csv.bz2&quot;))[,col_names])
