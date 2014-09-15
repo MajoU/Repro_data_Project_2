@@ -8,7 +8,7 @@ col_names <- c("EVTYPE","FATALITIES","INJURIES","PROPDMG","PROPDMGEXP","CROPDMG"
 data <- fread("./Storm_data.csv")
 
 # Change data colnames to lowercase
-setnames(data, names(data), tolower(names(data)))
+setnames(data, tolower(names(data)))
 # Change all variables in evtype column to lower case
 data[,evtype := tolower(evtype)]
 
@@ -21,19 +21,20 @@ head(arrange(data[grep("flood", evtype), .N, by = evtype], desc(N)),20)
 
 # The most influential source of event. I try to join some similar events with
 # influence on health and damage. 
-event <- list("heavy rain|rain", "winter events|winter|frost|cold|snow|freez|ice|blizzard", 
+events <- list("heavy rain|rain", "winter events|winter|frost|cold|snow|freez|ice|blizzard", 
     "hurricane events|hurricane|typhoon|tropical|waterspout", "heat|warm", "hail", 
     "flood events|flood|surf|surge", "wind events|wind", "tornado", "rip", "fog", "fire")
 
 # this is complex line that deal with data , grep every element of list within data 
 # column evtype and change this grep variables to first element of name from event list 
 # through gsub function. the solution is within the data because data.table package (different than data.frame).
-tmp <- lapply(event, function(x) data[grep(x, evtype), evtype := gsub("\\|+[a-z]+","", x)])
+tmp <- lapply(events, function(x) data[grep(x, evtype), evtype := gsub("\\|+[a-z]+", "", x)])
 
 # FIRST PART
 
 harm_sum <- data[, list(fatal = sum(fatalities), injur = sum(injuries)), by = evtype]
-harm_sort <- arrange(harm_sum, desc(fatal), desc(injur))
+head(harm_sum[order(-fatal), fatal, evtype],15)
+head(harm_sum[order(-injur), injur, evtype],15)
 
 # SECOND PART
 
@@ -45,7 +46,12 @@ prop_merge <- merge(prop_token, data, by = "propdmgexp")
 
 # prop_merge <- merge(setkey(prop_token, propdmgexp), setkey(data, propdmgexp))
 
+# Find propdmgexp tokens through through regex
+
+# data[propdmgexp %like% "K|M|B", ]
+
 #------------------------------------------------------------------------------------
+
 prop_sum <- prop_merge[, list(prop = sum(propdmg * dollars)), by = evtype]
 
 #---------------------------------------------------------

@@ -1,0 +1,181 @@
+# Analysis of major storm and weather events in 
+# the USA from 1950--2011
+
+## Synopsis
+
+The U.S. National Oceanic and Atmospheric Administration's (NOAA) [storm database](https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2)
+was used to compare outcomes from storm and severe weather event categories.
+Analyzed data are from 1950--2011.
+Outcomes analyzed are the number of fatalities and injuries and the dollar
+amount of property damage.
+Event categories are for example winter events, hurricane events, wind
+events, heat, tornado, flood events. The second name 'events' is
+indicator that multiple events with different names but similar behaviour
+are grouped as name of the dominant event + event name. Wind type is exception.
+
+The results of analysis are shown in tables and plots. The key of analysis
+is find the most influential event types for fatalities, injuries,
+property and crop damage.
+
+
+## Data Processing
+
+### 1. Read data file
+
+The data file (bz2) is in the working directory.
+Read the bz2 file as csv, select columns by col_names and convert data
+frame to data.table
+
+```{r}
+
+library(data.table)
+library(plyr)
+library(gridExtra)
+library(ggplot2)
+
+col_names <- c("EVTYPE","FATALITIES","INJURIES","PROPDMG","PROPDMGEXP","CROPDMG","CROPDMGEXP")
+# data <- data.table(read.csv(bzfile("./repdata_data_StormData.csv.bz2"))[,col_names])
+data <- fread("./Storm_data.csv")
+
+```
+### 2. Lower case the column names and evtype, show how much are event names repeating
+
+```{r}
+
+# Change the column names to lower case
+setnames(data, tolower(names(data)))
+
+# Change all event names in evtype column to lower case
+data[,evtype := tolower(evtype)][1:5]
+
+# How much are the names repetitive in the evtype column? 
+arrange(data[, .N, by = evtype], desc(N))[1:40]
+
+# How much are the specific event names repetitive?
+arrange(data[grep("wind", evtype), .N, by = evtype], desc(N))[1:20]
+
+arrange(data[grep("flood", evtype), .N, by = evtype], desc(N))[1:20]
+
+```
+### 3. Join the most influential events within evtype column
+
+I try to join similar names of the most influential source of events and in
+addition join the names of events with similar behaviour but different (not similar) names. 
+The first name of every string in the events list will be the representing name in evtype 
+column for all names in the string. This is done through gsub function.
+
+```{r}
+
+events <- list("heavy rain|rain", "winter events|winter|frost|cold|snow|freez|ice|blizzard", 
+    "hurricane events|hurricane|typhoon|tropical|waterspout", "heat|warm", "hail", 
+    "flood events|flood|surf|surge", "wind events|wind", "tornado", "rip", "fog", "fire")
+
+# This is a very complex line that deal with data, grep every element of list events within data 
+# column evtype and assing this grep variables to evtype as the first name from events string
+# through gsub function. The solution is within the data because data.table package (different than data.frame).
+tmp <- lapply(events, function(x) data[grep(x, evtype), evtype := gsub("\\|+[a-z]+", "", x)])
+
+data
+
+data[grep("wind", evtype), .N, by = evtype]
+
+data[grep("flood", evtype), .N, by = evtype]
+
+```
+
+### 4. The most harmful events with respect to population health
+
+Subset sum of injuries and fatalities by evtype and show ordered subset data. 
+
+```{r}
+
+harm_sum <- data[, list(fatal = sum(fatalities), injur = sum(injuries)), by = evtype]
+fatal <- harm_sum[order(-fatal), fatal, evtype][1:15]
+fatal
+injur <- harm_sum[order(-injur), injur, evtype][1:15]
+injur
+
+```
+### 5. The events of greatest economic consequences 
+
+#### 5.1 The property damage
+
+```{r}
+
+# create data table for merging propdmgexp
+prop_token <- data.table(propdmgexp = c("K", "M", "B"), dollars = as.numeric(c("1000", "10e5", "10e8")))
+
+# merge and convert propdmgexp tokens into dollars
+prop_merge <- merge(prop_token, data, by = "propdmgexp")
+
+prop_merge
+
+#####################################################################################
+#  ALTERNATIVE 1
+
+# prop_merge <- merge(setkey(prop_token, propdmgexp), setkey(data, propdmgexp))
+
+# ALTERNATIVE 2 (in one line) 
+
+# prop_merge_alt<- data[propdmgexp %like% "K|M|B", list(evtype, prop = ifelse(propdmgexp == "B", propdmg * 1e+09, ifelse(propdmgexp == 
+#    "M", propdmg * 1e+06, ifelse(propdmgexp == "K", propdmg * 1000, na.omit(propdmg)))))]
+
+# AND SUM BY EVTYPE
+
+# prop_merge_alt[, list(prop = sum(prop)), by = evtype]
+#####################################################################################
+
+prop_sum <- prop_merge[, list(prop = sum(propdmg * dollars)), by = evtype]
+
+######################################################################################
+#  ALTERNATIVE
+
+# prop_sum <- ddply(prop_merge[, prop := propdmg * dollars], .(evtype), summarize, prop = sum(prop))
+######################################################################################
+
+prop <- prop_sum[order(-prop)][1:15]
+prop
+
+```
+
+#### 5.2 The crop damage
+
+```{r}
+
+crop_token <- data.table(cropdmgexp = c("K", "M", "B"), dollars = as.numeric(c("1000", "10e5", "10e8")))
+crop_merge <- merge(crop_token, data, by = "cropdmgexp")
+crop_sum <- crop_merge[, list(crop = sum(cropdmg * dollars)), by = evtype]
+crop <- crop_sum[order(-crop)][1:15]
+crop
+
+```
+## Results
+
+```{r fig.width = 15, fig.height = 7}
+
+f <- ggplot(fatal, aes(x = reorder(evtype, fatal), y = fatal)) + geom_bar(stat = "identity") + coord_flip() +
+theme(axis.text.y = element_text(size=20,color="darkred"), text = element_text(size=19), axis.title.y = element_text(vjust = 1.0), 
+      axis.title.x = element_text(vjust = -0.6), plot.title = element_text(size = 19, vjust = 2)) +
+labs(y = "Deaths", x = "Weather events") + ggtitle("Weather fatalities in the USA for 1950-2011")
+
+i <- ggplot(injur, aes(x = reorder(evtype, injur), y = injur)) + geom_bar(stat = "identity") + coord_flip() +
+theme(axis.text.y = element_text(size=20,color="darkred"), text = element_text(size=19), axis.title.y = element_text(vjust = 1.0), 
+      axis.title.x = element_text(vjust = -0.6), plot.title = element_text(size = 19, vjust = 2)) +
+labs(y = "Injuries", x = "") + ggtitle("Weather injuries in the USA for 1950-2011")
+
+grid.arrange(f, i, ncol = 2)
+
+p <- ggplot(prop, aes(x = reorder(evtype, prop), y = prop)) + geom_bar(stat = "identity") + coord_flip() +
+theme(axis.text.y = element_text(size=20,color="darkred"), axis.text.x = element_text(size=15, color="darkred"), text = element_text(size=19), 
+      axis.title.y = element_text(vjust = 1.0), axis.title.x = element_text(vjust = -0.6), plot.title = element_text(size = 19, vjust = 2)) +
+labs(y = "Property damage in Dollars", x = "Weather events") + ggtitle("Property damage - USA for 1950-2011")
+
+c <- ggplot(crop, aes(x = reorder(evtype, crop), y = crop)) + geom_bar(stat = "identity") + coord_flip() +
+theme(axis.text.y = element_text(size=20,color="darkred"), axis.text.x = element_text(size=15, color="darkred"), text = element_text(size=19), 
+      axis.title.y = element_text(vjust = 1.0), axis.title.x = element_text(vjust = -0.6), plot.title = element_text(size = 19, vjust = 2)) +
+labs(y = "Crop damage in Dollars", x = "") + ggtitle("Crop damage - USA for 1950-2011")
+
+grid.arrange(p, c, ncol = 2)
+
+
+```
